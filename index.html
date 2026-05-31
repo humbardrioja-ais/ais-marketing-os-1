@@ -972,6 +972,17 @@ tbody tr:hover{background:rgba(255,255,255,.03)}
     <!-- ── Admin ── -->
     <div class="view" id="view-admin">
       <div class="ph"><div class="ph-title">Admin</div></div>
+
+      <!-- Seed banner — hidden once data exists -->
+      <div id="seed-banner" style="display:none;background:linear-gradient(135deg,var(--accent),#7c3aed);border-radius:12px;padding:20px 24px;margin-bottom:20px;display:flex;align-items:center;gap:16px">
+        <div style="font-size:28px">🚀</div>
+        <div style="flex:1">
+          <div style="font-size:14px;font-weight:700;color:#fff;margin-bottom:2px">System is empty — load your team data</div>
+          <div style="font-size:12px;color:rgba(255,255,255,.75)">Adds all 11 team members, 7 departments, sample tasks, campaigns & a meeting.</div>
+        </div>
+        <button id="seed-btn" class="btn btn-sm" style="background:#fff;color:#7c3aed;font-weight:700;flex-shrink:0" onclick="seedAllData()">Load Team Data</button>
+      </div>
+
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px">
         <div class="card">
           <div class="card-hd"><span class="card-title">Departments</span><button class="btn btn-sm btn-primary" onclick="openAdd('Departments')">+ Add</button></div>

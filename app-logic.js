@@ -1326,8 +1326,118 @@ async function addTaskComment(taskId) {
   if (input) input.value = '';
 }
 
+// ─── SEED DATA ────────────────────────────────────────────────────────────────
+function seedLocalAdd(sheet, data) {
+  data.id         = data.id         || genId();
+  data.created_at = data.created_at || new Date().toISOString();
+  DB[sheet].push(data);
+  enqueue({ action: 'append', sheet, data });
+  return data;
+}
+
+function seedAllData() {
+  const btn = document.getElementById('seed-btn');
+  if (btn) { btn.textContent = 'Seeding…'; btn.disabled = true; }
+
+  const d = (n) => {
+    const dt = new Date(); dt.setDate(dt.getDate() + n);
+    return dt.toISOString().slice(0,10);
+  };
+
+  // ── Departments ──────────────────────────────────────────────
+  if (!DB.Departments.length) {
+    [
+      { slug:'social',    name:'Social Media & Web',       color:'#3B82F6', position:1 },
+      { slug:'creative',  name:'Creatives & Merchandise',  color:'#22C55E', position:2 },
+      { slug:'media',     name:'Media Team',               color:'#EC4899', position:3 },
+      { slug:'alumni',    name:'Alumni',                   color:'#EAB308', position:4 },
+      { slug:'events',    name:'Events & Sponsorship',     color:'#64748B', position:5 },
+      { slug:'campaigns', name:'Campaigns',                color:'#A855F7', position:6 },
+      { slug:'content',   name:'Content & Editorial',      color:'#E11D48', position:7 },
+    ].forEach(dep => seedLocalAdd('Departments', dep));
+  }
+
+  // ── Members ───────────────────────────────────────────────────
+  if (!DB.Members.length) {
+    [
+      { full_name:'Vath Voleak',   email:'voleak@ais.edu.kh',   role:'Marketing & Sponsorship Coordinator', department:'campaigns', campus:'' },
+      { full_name:'Vichhai Pov',   email:'vichhai@ais.edu.kh',  role:'Media Team – Video Production',       department:'media',     campus:'' },
+      { full_name:'Ream Phan',     email:'ream@ais.edu.kh',     role:'Media Team',                          department:'media',     campus:'' },
+      { full_name:'Soklim Lim',    email:'soklim@ais.edu.kh',   role:'Media Team',                          department:'media',     campus:'' },
+      { full_name:'Vira Song',     email:'vira@ais.edu.kh',     role:'Media Team',                          department:'media',     campus:'' },
+      { full_name:'Sina Yoeurn',   email:'sina@ais.edu.kh',     role:'Creative Team – Design & Artwork',    department:'creative',  campus:'' },
+      { full_name:'Sarith Chan',   email:'sarith@ais.edu.kh',   role:'Creative/Marketing Team',             department:'creative',  campus:'' },
+      { full_name:'Ve Lok',        email:'ve@ais.edu.kh',       role:'Web & Digital Team',                  department:'social',    campus:'' },
+      { full_name:'Vattey Vay',    email:'vattey@ais.edu.kh',   role:'Content & Editorial Team',            department:'content',   campus:'' },
+      { full_name:'Sothear Khath', email:'sothear@ais.edu.kh',  role:'Marketing/Event Operations Team',     department:'events',    campus:'' },
+      { full_name:'Kimsal Nan',    email:'kimsal@ais.edu.kh',   role:'Marketing/Creative Team',             department:'creative',  campus:'' },
+    ].forEach(m => seedLocalAdd('Members', m));
+  }
+
+  // ── Tasks ─────────────────────────────────────────────────────
+  if (!DB.Tasks.length) {
+    [
+      { title:'Create Facebook & Instagram posts for Open Day',          assignee_name:'Ve Lok',        department:'social',    priority:'high',     status:'todo',        due_date:d(3)  },
+      { title:'Edit June enrollment campaign video',                      assignee_name:'Vichhai Pov',   department:'media',     priority:'critical', status:'in_progress', due_date:d(5)  },
+      { title:'Design banner for July intake – all campuses',             assignee_name:'Sina Yoeurn',   department:'creative',  priority:'high',     status:'todo',        due_date:d(4)  },
+      { title:'Write press release – Graduation Ceremony 2026',           assignee_name:'Vattey Vay',    department:'content',   priority:'medium',   status:'in_review',   due_date:d(2)  },
+      { title:'Coordinate sponsorship packages for AIS Sports Day',       assignee_name:'Vath Voleak',   department:'campaigns', priority:'high',     status:'in_progress', due_date:d(7)  },
+      { title:'Shoot campus tour walkthrough video',                      assignee_name:'Ream Phan',     department:'media',     priority:'medium',   status:'todo',        due_date:d(10) },
+      { title:'Update AIS website homepage – June intake banner',         assignee_name:'Ve Lok',        department:'social',    priority:'medium',   status:'todo',        due_date:d(6)  },
+      { title:'May social media performance report',                      assignee_name:'Sarith Chan',   department:'creative',  priority:'low',      status:'todo',        due_date:d(3)  },
+      { title:'Plan Q3 campaign calendar (Jul–Sep 2026)',                 assignee_name:'Vath Voleak',   department:'campaigns', priority:'high',     status:'todo',        due_date:d(12) },
+      { title:'Design graduation merchandise – mugs & tote bags',        assignee_name:'Kimsal Nan',    department:'creative',  priority:'medium',   status:'in_progress', due_date:d(14) },
+      { title:'Write June Student Spotlight blog post',                   assignee_name:'Vattey Vay',    department:'content',   priority:'low',      status:'todo',        due_date:d(9)  },
+      { title:'Organize Open Day logistics – all campuses',               assignee_name:'Sothear Khath', department:'events',    priority:'critical', status:'in_progress', due_date:d(6)  },
+      { title:'Produce TikTok content series for July',                   assignee_name:'Vira Song',     department:'media',     priority:'medium',   status:'todo',        due_date:d(15) },
+      { title:'Review and approve intake ad creatives',                   assignee_name:'Sina Yoeurn',   department:'creative',  priority:'high',     status:'in_review',   due_date:d(1)  },
+      { title:'Update Soklim on B-roll footage for enrollment video',     assignee_name:'Soklim Lim',    department:'media',     priority:'medium',   status:'todo',        due_date:d(4)  },
+    ].forEach(t => seedLocalAdd('Tasks', t));
+  }
+
+  // ── Campaigns ─────────────────────────────────────────────────
+  if (!DB.Campaigns.length) {
+    [
+      { title:'July 2026 Enrollment Drive',    status:'active',    department:'campaigns', campus:'', start_date:'2026-07-01', end_date:'2026-07-31', description:'Main enrollment push across all platforms for July intake' },
+      { title:'AIS Open Day – August 2026',    status:'active',    department:'events',    campus:'', start_date:'2026-07-15', end_date:'2026-08-10', description:'Open day event promotion – social, print, email' },
+      { title:'Graduation 2026 Media Coverage',status:'active',    department:'media',     campus:'', start_date:'2026-06-10', end_date:'2026-06-30', description:'Photo/video coverage of graduation ceremonies' },
+      { title:'Q3 Brand Awareness Campaign',   status:'draft',     department:'campaigns', campus:'', start_date:'2026-07-01', end_date:'2026-09-30', description:'Brand building across digital and print for Q3' },
+      { title:'Alumni Engagement Series',      status:'draft',     department:'alumni',    campus:'', start_date:'2026-07-01', end_date:'2026-08-31', description:'Re-engage alumni via newsletter and social content' },
+    ].forEach(c => seedLocalAdd('Campaigns', c));
+  }
+
+  // ── Meetings ──────────────────────────────────────────────────
+  if (!DB.Meetings.length) {
+    const mtg = seedLocalAdd('Meetings', {
+      title:'Weekly Marketing Sync – June 2',
+      date:'2026-06-02',
+      attendees:'Voleak, Vichhai, Sina, Ve, Vattey, Sothear',
+      summary:'Reviewed Open Day preparations, assigned social tasks, discussed June enrollment campaign performance and Q3 planning.',
+    });
+    [
+      { meeting_id:mtg.id, title:'Increase SR Facebook ad spend by 20%',    assignee_name:'Ve Lok',      due_date:d(5),  pushed:'false' },
+      { meeting_id:mtg.id, title:'Create Open Day reel series (3 videos)',   assignee_name:'Vichhai Pov', due_date:d(10), pushed:'false' },
+      { meeting_id:mtg.id, title:'Send sponsorship proposal to Cellcard',    assignee_name:'Vath Voleak', due_date:d(7),  pushed:'false' },
+      { meeting_id:mtg.id, title:'Prepare Q3 campaign brief document',       assignee_name:'Sarith Chan', due_date:d(14), pushed:'false' },
+    ].forEach(a => seedLocalAdd('Meeting_Actions', a));
+  }
+
+  saveToLS();
+  renderAll();
+  flushQueue();
+
+  if (btn) { btn.textContent = '✓ Done'; }
+  toast('✓ Team and sample data loaded!', 'success');
+}
+
 // ─── ADMIN ────────────────────────────────────────────────────────────────────
 function renderAdmin() {
+  // Seed banner — show if system has no members yet
+  const seedBanner = document.getElementById('seed-banner');
+  if (seedBanner) {
+    seedBanner.style.display = DB.Members.length ? 'none' : 'block';
+  }
+
   // Departments
   const deptsEl = document.getElementById('admin-depts');
   if (deptsEl) deptsEl.innerHTML = DB.Departments.length
