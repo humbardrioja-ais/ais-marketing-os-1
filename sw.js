@@ -2,7 +2,7 @@
  * AIS Marketing OS — Service Worker
  * Bump CACHE_VERSION on every deploy to force clients to update.
  */
-const CACHE_VERSION = 'ais-v11';
+const CACHE_VERSION = 'ais-v12';
 const STATIC_ASSETS = ['/', '/index.html', '/app-logic.js', '/manifest.json'];
 
 // ─── Install: pre-cache static assets ────────────────────────────────────────

@@ -677,6 +677,29 @@ function renderCalendar() {
 
   const gridEl = document.getElementById('cal-grid');
   if (gridEl) gridEl.innerHTML = html;
+
+  // Render iCal feed list in sidebar
+  const icalListEl = document.getElementById('cal-ical-list');
+  if (icalListEl) {
+    if (!DB.iCal_Feeds.length) {
+      icalListEl.innerHTML = '';
+    } else {
+      icalListEl.innerHTML = DB.iCal_Feeds.map(f => {
+        const enabled = f.enabled !== 'false' && f.enabled !== false;
+        const cached  = (iCalCache[f.id] || []).length;
+        return `<div class="cal-feed-row">
+          <span class="cal-feed-dot" style="background:${f.color||'#6366F1'};opacity:${enabled?1:.4}"></span>
+          <span class="cal-feed-name" style="opacity:${enabled?1:.5}">${esc(f.name)}</span>
+          <div class="cal-feed-actions">
+            <input type="checkbox" ${enabled?'checked':''} style="cursor:pointer" title="Enable/disable"
+              onchange="toggleICalFeed('${f.id}',this.checked)"/>
+            <button style="background:none;border:none;cursor:pointer;color:var(--ct);font-size:13px;padding:0 2px"
+              title="Sync now" onclick="syncICalFeed('${f.id}')">↻</button>
+          </div>
+        </div>`;
+      }).join('');
+    }
+  }
 }
 
 function calPrev()  { calDate.setMonth(calDate.getMonth()-1); renderCalendar(); }

@@ -354,6 +354,19 @@ tbody tr:hover{background:rgba(255,255,255,.03)}
 .goal-bar{height:5px;border-radius:8px;transition:width .4s ease}
 .goal-pct{font-size:10px;color:var(--ct);flex-shrink:0;min-width:30px;text-align:right}
 
+/* ── Calendar sidebar panel ──────────────────────────────────── */
+.cal-sidebar-panel{
+  width:200px;flex-shrink:0;background:var(--bg-card);border:1px solid var(--border-s);
+  border-radius:var(--radius);padding:14px;
+}
+@media(max-width:768px){.cal-sidebar-panel{width:100%;order:2}}
+.cal-feed-row{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border-s)}
+.cal-feed-row:last-of-type{border-bottom:none}
+.cal-feed-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+.cal-feed-name{font-size:12px;font-weight:600;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cal-feed-badge{font-size:9px;color:var(--ct);background:var(--bg-subtle);padding:1px 5px;border-radius:6px;flex-shrink:0}
+.cal-feed-actions{display:flex;gap:4px;flex-shrink:0}
+
 /* ── iCal ────────────────────────────────────────────────────── */
 .ical-row{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border-s)}
 .ical-row:last-child{border-bottom:none}
@@ -763,20 +776,59 @@ tbody tr:hover{background:rgba(255,255,255,.03)}
 
       <!-- Calendar tab -->
       <div class="stab-content active" id="sc-calendar">
-        <div class="cal-header">
-          <button class="btn btn-outline btn-sm" onclick="calPrev()">‹</button>
-          <span class="cal-title" id="cal-title"></span>
-          <button class="btn btn-outline btn-sm" onclick="calToday()">Today</button>
-          <button class="btn btn-outline btn-sm" onclick="calNext()">›</button>
-          <div style="margin-left:auto;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
-            <button class="chip chip-green on" id="cf-leave" onclick="toggleCalFilter('leave',this)">🌿 Leave</button>
-            <button class="chip chip-amber on" id="cf-mission" onclick="toggleCalFilter('mission',this)">⚡ Missions</button>
-            <button class="chip chip-blue on" id="cf-dayoff" onclick="toggleCalFilter('dayoff',this)">🌙 Day-Off</button>
-            <button class="btn btn-sm btn-primary" onclick="openAdd('Events')">+ Add</button>
+        <div style="display:flex;gap:16px;align-items:flex-start">
+
+          <!-- Left: calendar grid -->
+          <div style="flex:1;min-width:0">
+            <div class="cal-header">
+              <button class="btn btn-outline btn-sm" onclick="calPrev()">‹</button>
+              <span class="cal-title" id="cal-title"></span>
+              <button class="btn btn-outline btn-sm" onclick="calToday()">Today</button>
+              <button class="btn btn-outline btn-sm" onclick="calNext()">›</button>
+              <div style="margin-left:auto;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+                <button class="chip chip-green on" id="cf-leave" onclick="toggleCalFilter('leave',this)">🌿 Leave</button>
+                <button class="chip chip-amber on" id="cf-mission" onclick="toggleCalFilter('mission',this)">⚡ Missions</button>
+                <button class="chip chip-blue on" id="cf-dayoff" onclick="toggleCalFilter('dayoff',this)">🌙 Day-Off</button>
+                <button class="btn btn-sm btn-primary" onclick="openAdd('Events')">+ Event</button>
+              </div>
+            </div>
+            <div class="cal-grid" id="cal-grid"></div>
+            <div id="cal-day-detail" style="margin-top:16px;display:none"></div>
           </div>
+
+          <!-- Right: My Calendars panel -->
+          <div class="cal-sidebar-panel">
+            <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--ct);margin-bottom:10px">My Calendars</div>
+
+            <!-- Built-in calendars -->
+            <div class="cal-feed-row">
+              <span class="cal-feed-dot" style="background:#3B82F6"></span>
+              <span class="cal-feed-name">Tasks</span>
+              <span class="cal-feed-badge">AIS</span>
+            </div>
+            <div class="cal-feed-row">
+              <span class="cal-feed-dot" style="background:#64748B"></span>
+              <span class="cal-feed-name">Events</span>
+              <span class="cal-feed-badge">AIS</span>
+            </div>
+            <div class="cal-feed-row">
+              <span class="cal-feed-dot" style="background:#EC4899"></span>
+              <span class="cal-feed-name">Shoots</span>
+              <span class="cal-feed-badge">AIS</span>
+            </div>
+
+            <!-- iCal feeds (rendered by JS) -->
+            <div id="cal-ical-list" style="margin-top:4px"></div>
+
+            <button class="btn btn-sm btn-primary" style="width:100%;margin-top:12px;justify-content:center" onclick="openAdd('iCal_Feeds')">
+              + Connect Calendar
+            </button>
+            <div style="font-size:10px;color:var(--ct);margin-top:6px;line-height:1.5">
+              Paste a Google Calendar or Outlook iCal (.ics) link to sync external events here.
+            </div>
+          </div>
+
         </div>
-        <div class="cal-grid" id="cal-grid"></div>
-        <div id="cal-day-detail" style="margin-top:16px;display:none"></div>
       </div>
 
       <!-- Tasks tab -->
