@@ -404,7 +404,7 @@ function pill(status) {
     todo:'To Do', ip:'In Progress', ir:'In Review', done:'Done', blocked:'Blocked',
     active:'Active', draft:'Draft', completed:'Completed', paused:'Paused',
     low:'Low', medium:'Medium', high:'High', critical:'Critical',
-    approved:'Approved', pending:'Pending', rejected:'Rejected', cancelled:'Cancelled',
+    cancelled:'Cancelled',
     annual:'Annual', sick:'Sick', emergency:'Emergency', maternity:'Maternity', unpaid:'Unpaid',
     leave:'Leave', mission:'Mission', dayoff:'Day Off',
     scheduled:'Scheduled', wrapped:'Wrapped',
@@ -475,20 +475,20 @@ function renderDashboard() {
   const activeTasks     = DB.Tasks.filter(t => t.status !== 'done' && t.status !== 'blocked').length;
   const doneTasks       = DB.Tasks.filter(t => t.status === 'done').length;
   const activeCampaigns = DB.Campaigns.filter(c => c.status === 'active').length;
-  const pendingPeople   = [...DB.Leave_Requests, ...DB.Missions, ...DB.Comp_Days].filter(r => r.status === 'pending').length;
   const upcomingEvents  = DB.Events.filter(e => { const d = daysUntil(e.date); return d !== null && d >= 0 && d <= 14; }).length;
   const overdueTasks    = DB.Tasks.filter(t => t.status !== 'done' && isOverdue(t.due_date)).length;
   const totalTasks      = DB.Tasks.length;
   const pct             = totalTasks ? Math.round((doneTasks / totalTasks) * 100) : 0;
+  const onLeaveToday    = DB.Leave_Requests.filter(r => { const td = new Date().toISOString().slice(0,10); return r.start_date<=td && r.end_date>=td; }).length;
 
   const kpiEl = document.getElementById('dash-kpis');
   if (kpiEl) kpiEl.innerHTML = [
     { icon:'📋', label:'Open Tasks',       val:activeTasks,       sub: overdueTasks ? `⚠️ ${overdueTasks} overdue` : `${pct}% complete`,   color:'#3B82F6' },
     { icon:'🚀', label:'Active Campaigns', val:activeCampaigns,   sub:`of ${DB.Campaigns.length} total`,                                    color:'#A855F7' },
-    { icon:'🕐', label:'Pending Requests', val:pendingPeople,     sub:'leave / missions / comp',                                            color:'#F59E0B' },
-    { icon:'📅', label:'Upcoming Events',  val:upcomingEvents,    sub:'next 14 days',                                                       color:'#22C55E' },
-    { icon:'👥', label:'Team Members',     val:DB.Members.length, sub:'registered',                                                         color:'#EC4899' },
-    { icon:'💬', label:'Meetings Logged',  val:DB.Meetings.length,sub:`${DB.Meeting_Actions.filter(a=>!a.pushed||a.pushed==='false').length} pending actions`, color:'#64748B' },
+    { icon:'🌿', label:'On Leave Today',   val:onLeaveToday,      sub:`of ${DB.Members.length} team members`,                              color:'#22C55E' },
+    { icon:'📅', label:'Upcoming Events',  val:upcomingEvents,    sub:'next 14 days',                                                       color:'#F59E0B' },
+    { icon:'🎬', label:'Scheduled Shoots', val:DB.Shoots.filter(s=>s.status==='scheduled').length, sub:'upcoming',                          color:'#EC4899' },
+    { icon:'💬', label:'Meetings Logged',  val:DB.Meetings.length,sub:`${DB.Meeting_Actions.filter(a=>!a.pushed||a.pushed==='false').length} actions pending`, color:'#64748B' },
   ].map(k => `
     <div class="kpi" style="border-top:3px solid ${k.color}">
       <div class="kpi-icon">${k.icon}</div>
@@ -1120,7 +1120,6 @@ function renderPeople() {
       if (peopleFilter==='leave'   && r.kind!=='leave')   return false;
       if (peopleFilter==='mission' && r.kind!=='mission') return false;
       if (peopleFilter==='dayoff'  && r.kind!=='dayoff')  return false;
-      if (peopleFilter==='approved'&& r.data.status!=='approved') return false;
       if (search && !(r.data.member_name||'').toLowerCase().includes(search)) return false;
       return true;
     });
@@ -1139,7 +1138,7 @@ function renderPeople() {
           ? pill(d.leave_type)
           : isD ? '<span style="font-size:12px;font-weight:600">Day Off (Comp)</span>'
           : `<span style="font-size:12px;font-weight:600">${truncate(d.title,30)}</span>`;
-        const compCell = (!isL && !isD && d.status==='approved' && r.comp)
+        const compCell = (!isL && !isD && r.comp)
           ? compExpiryHTML(r.comp)
           : isD ? `<span style="font-size:11px;color:var(--ct)">${d.expires_at?'Exp: '+fmtDate(d.expires_at):'—'}</span>`
           : '<span style="color:var(--ct)">—</span>';
@@ -1150,7 +1149,6 @@ function renderPeople() {
           <td><div style="display:flex;align-items:center;gap:8px">${av(d.member_name)}<span>${d.member_name||'—'}</span></div></td>
           <td>${details}</td>
           <td style="font-size:12px;white-space:nowrap">${dateStr}</td>
-          <td>${pill(d.status||'pending')}</td>
           <td>${compCell}</td>
           <td>${delBtn(sheet,d.id)}</td>
         </tr>`;
@@ -1159,8 +1157,8 @@ function renderPeople() {
 }
 
 function compExpiryHTML(comp) {
-  if (comp.comp_date) return '<span class="pill p-approved">✓ Scheduled</span>';
-  if (comp.status==='expired') return '<span class="pill p-rejected">Expired</span>';
+  if (comp.comp_date) return '<span class="pill p-done">✓ Scheduled</span>';
+  if (comp.status==='expired') return '<span class="pill" style="background:var(--red-soft);color:var(--red)">Expired</span>';
   if (!comp.expires_at) return '<span style="color:var(--ct)">—</span>';
   const d = daysUntil(comp.expires_at);
   const color = d<=7 ? '#EF4444' : d<=21 ? '#F59E0B' : '#22C55E';
@@ -1827,10 +1825,7 @@ const FORMS = {
       <div class="fg"><label class="fl">End Date *</label><input class="fi" type="date" name="end_date" value="${item.end_date||''}"/></div>
     </div>
     <div class="fg"><label class="fl">Days Count</label><input class="fi" type="number" name="days_count" value="${item.days_count||1}" min="0.5" step="0.5"/></div>
-    <div class="fg"><label class="fl">Reason</label><textarea class="fta" name="reason" rows="2">${esc(item.reason)}</textarea></div>
-    <div class="fg"><label class="fl">Status</label><select class="fs" name="status">
-      ${['pending','approved','rejected','cancelled'].map(s=>`<option value="${s}" ${item.status===s?'selected':''}>${s}</option>`).join('')}
-    </select></div>`,
+    <div class="fg"><label class="fl">Reason</label><textarea class="fta" name="reason" rows="2">${esc(item.reason)}</textarea></div>`,
 
   Missions: (item={}) => `
     <div class="fr">
@@ -1852,21 +1847,13 @@ const FORMS = {
       <div class="fg"><label class="fl">Start Time</label><input class="fi" type="time" name="start_time" value="${item.start_time||''}"/></div>
       <div class="fg"><label class="fl">End Time</label><input class="fi" type="time" name="end_time" value="${item.end_time||''}"/></div>
     </div>
-    <div class="fg"><label class="fl">Description</label><textarea class="fta" name="description" rows="2">${esc(item.description)}</textarea></div>
-    <div class="fg"><label class="fl">Status</label><select class="fs" name="status">
-      ${['pending','approved','rejected'].map(s=>`<option value="${s}" ${item.status===s?'selected':''}>${s}</option>`).join('')}
-    </select></div>`,
+    <div class="fg"><label class="fl">Description</label><textarea class="fta" name="description" rows="2">${esc(item.description)}</textarea></div>`,
 
   Comp_Days: (item={}) => `
-    <div class="fr">
-      <div class="fg"><label class="fl">Member *</label><select class="fs" name="member_name">
+    <div class="fg"><label class="fl">Member *</label><select class="fs" name="member_name">
         <option value="">— Select —</option>
         ${DB.Members.map(m=>`<option value="${m.full_name}" ${item.member_name===m.full_name?'selected':''}>${m.full_name}</option>`).join('')}
       </select></div>
-      <div class="fg"><label class="fl">Status</label><select class="fs" name="status">
-        ${['pending','approved','scheduled','expired'].map(s=>`<option value="${s}" ${item.status===s?'selected':''}>${s}</option>`).join('')}
-      </select></div>
-    </div>
     <div class="fr">
       <div class="fg"><label class="fl">Comp Date (day off)</label><input class="fi" type="date" name="comp_date" value="${item.comp_date||''}"/></div>
       <div class="fg"><label class="fl">Expires At</label><input class="fi" type="date" name="expires_at" value="${item.expires_at||''}"/></div>

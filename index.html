@@ -515,12 +515,6 @@ tbody tr:hover{background:rgba(255,255,255,.03)}
 .tag-today{background:var(--amber-soft);color:var(--amber)}
 .tag-week{background:var(--accent-soft);color:#60A5FA}
 
-/* ── Inline approve buttons ────────────────────────────── */
-.appr-btn{height:24px;padding:0 9px;border-radius:6px;font-size:10px;font-weight:700;cursor:pointer;border:none;transition:all .12s;white-space:nowrap}
-.appr-yes{background:var(--green-soft);color:var(--green)}
-.appr-yes:hover{background:var(--green);color:#fff}
-.appr-no{background:var(--red-soft);color:var(--red)}
-.appr-no:hover{background:var(--red);color:#fff}
 
 /* ── Clickable status pill ─────────────────────────────── */
 .status-btn{cursor:pointer;transition:opacity .12s;user-select:none;border:none;font-family:inherit}
@@ -732,15 +726,6 @@ tbody tr:hover{background:rgba(255,255,255,.03)}
       <!-- 2-col grid -->
       <div class="dash-grid">
         <div style="display:flex;flex-direction:column;gap:14px">
-          <!-- Pending Approvals -->
-          <div class="card">
-            <div class="card-hd">
-              <span style="font-size:15px">🕐</span>
-              <span class="card-title">Pending Approvals</span>
-              <span id="dash-appr-badge" class="sb-badge" style="background:var(--amber);display:none;margin-left:0"></span>
-            </div>
-            <div style="padding:8px 16px" id="dash-approvals"></div>
-          </div>
           <!-- Active Campaigns -->
           <div class="card">
             <div class="card-hd">
@@ -962,11 +947,9 @@ tbody tr:hover{background:rgba(255,255,255,.03)}
         <button class="chip chip-green" data-pf="leave" onclick="setPF('leave',this)">🌿 Leave</button>
         <button class="chip chip-amber" data-pf="mission" onclick="setPF('mission',this)">⚡ Missions</button>
         <button class="chip chip-blue" data-pf="dayoff" onclick="setPF('dayoff',this)">🌙 Day-Off</button>
-        <button class="chip" data-pf="pending" onclick="setPF('pending',this)">🕐 Pending</button>
-        <button class="chip" data-pf="approved" onclick="setPF('approved',this)">✓ Approved</button>
       </div>
       <div class="tw"><table>
-        <thead><tr><th>Type</th><th>Member</th><th>Details</th><th>Date</th><th>Status</th><th>Comp Day</th><th>Action</th><th></th></tr></thead>
+        <thead><tr><th>Type</th><th>Member</th><th>Details</th><th>Date</th><th>Comp Day</th><th></th></tr></thead>
         <tbody id="ppl-body"></tbody>
       </table></div>
     </div>
