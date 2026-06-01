@@ -9,7 +9,6 @@ const CONFIG = {
   SCRIPT_URL:    localStorage.getItem('ais_script_url') || 'https://script.google.com/macros/s/AKfycbyEo1uEwr8cASUvW-jyKpL39QXraT0lgWPl1JtwFmIPHg2hFF5OnFYqyWjH66FunJho/exec',
   SYNC_INTERVAL: 30_000,
   LS_KEY:        'ais_data',
-  LS_QUEUE:      'ais_queue',
   CAMPUSES:      ['MTT','TK','CA','TAK','SR'],
   PRIORITIES:    ['low','medium','high','critical'],
   TASK_STATUSES: ['todo','in_progress','in_review','done','blocked'],
@@ -50,7 +49,6 @@ let drawerEntity     = null;
 let drawerItem       = null;
 let confirmCb        = null;
 let isSyncing        = false;
-let pendingQueue     = [];
 const expandedTasks  = new Set();
 const expandedMonths = new Set();
 
@@ -64,7 +62,7 @@ window.addEventListener('DOMContentLoaded', () => {
     navigator.serviceWorker.register('sw.js').catch(e => console.warn('SW:', e));
 
   // Online/offline
-  window.addEventListener('online',  () => { hideBanner(); flushQueue(); });
+  window.addEventListener('online',  () => { hideBanner(); fetchFromSheets(); });
   window.addEventListener('offline', () => showBanner());
   if (!navigator.onLine) showBanner();
 
@@ -90,12 +88,8 @@ window.addEventListener('DOMContentLoaded', () => {
     if (mb) mb.style.display = 'flex';
   }
 
-  // Restore offline queue — auto-clear stale items older than 24h
-  pendingQueue = JSON.parse(localStorage.getItem(CONFIG.LS_QUEUE) || '[]');
-  const cutoff = Date.now() - 86400000;
-  pendingQueue = pendingQueue.filter(op => !op._ts || op._ts > cutoff);
-  saveQueue();
-  setTimeout(updateQueueBadge, 0);
+  // Clear any leftover queue from old version
+  localStorage.removeItem('ais_queue');
 
   // Load cached iCal events
   try { iCalCache = JSON.parse(localStorage.getItem('ais_ical') || '{}'); } catch(e) {}
@@ -126,10 +120,6 @@ function loadFromLS() {
     Object.keys(DB).forEach(k => { if (d[k]) DB[k] = d[k]; });
   } catch(e) {}
 }
-function saveQueue() {
-  localStorage.setItem(CONFIG.LS_QUEUE, JSON.stringify(pendingQueue));
-}
-
 // ─── SYNC — FETCH ─────────────────────────────────────────────────────────────
 async function fetchFromSheets() {
   if (!CONFIG.SCRIPT_URL || isSyncing) return;
@@ -170,61 +160,23 @@ function updateSyncTime() {
   if (el) el.textContent = new Date().toLocaleTimeString();
 }
 
-// ─── SYNC — PUSH ──────────────────────────────────────────────────────────────
+// ─── SYNC — PUSH (direct, no queue) ──────────────────────────────────────────
 async function pushToSheets(payload) {
-  if (!CONFIG.SCRIPT_URL) return true;
-  if (!navigator.onLine) { enqueue(payload); return false; }
+  if (!CONFIG.SCRIPT_URL) return true; // no URL configured — skip silently
   try {
     const res  = await fetch(CONFIG.SCRIPT_URL, {
-      method: 'POST',
-      body: JSON.stringify(payload),
+      method:  'POST',
+      body:    JSON.stringify(payload),
       headers: { 'Content-Type': 'application/json' },
     });
     const json = await res.json();
     if (!json.ok) throw new Error(json.error);
     return true;
   } catch(e) {
-    enqueue(payload);
-    // No per-item toast — queue badge handles this silently
+    // Show a small non-blocking warning but don't queue
+    console.warn('Sheets push failed:', e.message);
     return false;
   }
-}
-
-function enqueue(payload) {
-  pendingQueue.push({ ...payload, _ts: Date.now() });
-  saveQueue();
-  updateQueueBadge();
-}
-
-function updateQueueBadge() {
-  const el = document.getElementById('queue-badge');
-  if (!el) return;
-  if (pendingQueue.length) {
-    el.textContent = pendingQueue.length + ' queued';
-    el.style.display = 'inline';
-  } else {
-    el.style.display = 'none';
-  }
-}
-
-function clearQueue() {
-  pendingQueue = [];
-  saveQueue();
-  updateQueueBadge();
-  toast('Queue cleared ✓', 'success');
-}
-
-async function flushQueue() {
-  if (!CONFIG.SCRIPT_URL || !pendingQueue.length) return;
-  const batch = [...pendingQueue];
-  pendingQueue = [];
-  saveQueue();
-  let failed = 0;
-  for (const op of batch) {
-    try { await pushToSheets(op); } catch(e) { pendingQueue.push(op); failed++; }
-  }
-  if (pendingQueue.length) { saveQueue(); }
-  updateQueueBadge();
 }
 
 // ─── CRUD ─────────────────────────────────────────────────────────────────────
@@ -1632,13 +1584,6 @@ function renderICalFeeds() {
 }
 
 // ─── SEED DATA ────────────────────────────────────────────────────────────────
-function seedLocalAdd(sheet, data) {
-  data.id         = data.id         || genId();
-  data.created_at = data.created_at || new Date().toISOString();
-  DB[sheet].push(data);
-  enqueue({ action: 'append', sheet, data });
-  return data;
-}
 
 async function seedAllData() {
   const btn = document.getElementById('seed-btn');
