@@ -84,6 +84,16 @@ window.addEventListener('DOMContentLoaded', () => {
   const savedAccent = localStorage.getItem('ais_accent');
   if (savedAccent) setAccent(savedAccent, null, true);
 
+  // Restore sidebar collapsed state
+  if (window.innerWidth > 768) {
+    const sb = document.getElementById('sidebar');
+    if (localStorage.getItem('ais_sidebar_collapsed') === '1' && sb) {
+      sb.classList.add('collapsed');
+      const icon = document.getElementById('collapse-icon');
+      if (icon) icon.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg>';
+    }
+  }
+
   // Mobile menu button
   if (window.innerWidth <= 768) {
     const mb = document.getElementById('menu-btn');
@@ -1451,7 +1461,10 @@ function showMeeting(id) {
           Action Items
           <span style="font-size:11px;color:var(--ct);font-weight:400">${pushed.length}/${actions.length} pushed</span>
         </div>
-        ${unpushed.length > 1 ? `<button class="btn btn-sm btn-primary" onclick="pushAllActionItems('${id}')">Push All (${unpushed.length}) →</button>` : ''}
+        <div style="display:flex;gap:6px">
+          ${unpushed.length > 1 ? `<button class="btn btn-sm btn-primary" onclick="pushAllActionItems('${id}')">Push All (${unpushed.length}) →</button>` : ''}
+          <button class="btn btn-sm btn-outline" onclick="openAddActionItem('${id}')">+ Add Item</button>
+        </div>
       </div>
 
       ${actions.length
@@ -1488,6 +1501,14 @@ function showMeeting(id) {
         ${delBtn('Meetings', id)}
       </div>
     </div>`;
+}
+
+function openAddActionItem(meetingId) {
+  drawerEntity = 'Meeting_Actions';
+  drawerItem   = { _meetingId: meetingId }; // sentinel so saveDrawer knows the meeting
+  document.getElementById('dr-title').textContent = 'Add Action Item';
+  document.getElementById('dr-body').innerHTML    = FORMS.Meeting_Actions({ meeting_id: meetingId });
+  openDrawer();
 }
 
 async function pushAllActionItems(meetingId) {
@@ -1696,6 +1717,8 @@ function renderMyGoals() {
   const el = document.getElementById('my-goals');
   if (!el) return;
   const user = localStorage.getItem('ais_current_user') || '';
+  const periodEl = document.getElementById('goals-period');
+  if (periodEl) periodEl.textContent = new Date().toLocaleDateString('en', { month: 'long', year: 'numeric' });
   if (!user) { el.innerHTML = '<div style="color:var(--ct);font-size:12px;padding:6px 0">Set your name in Admin → Settings to see goals.</div>'; return; }
   const myGoals = DB.Member_Goals.filter(g => g.member_name === user);
   if (!myGoals.length) { el.innerHTML = '<div style="color:var(--ct);font-size:12px;padding:6px 0">No goals assigned yet.</div>'; return; }
@@ -2312,6 +2335,16 @@ const FORMS = {
       ${DB.Departments.map(d=>`<option value="${d.slug}" ${item.department===d.slug?'selected':''}>${d.name}</option>`).join('')}
     </select></div>`,
 
+  Meeting_Actions: (item={}) => `
+    <div class="fg"><label class="fl">Action Item *</label><input class="fi" name="title" value="${esc(item.title)}" placeholder="What needs to be done…"/></div>
+    <div class="fg"><label class="fl">Assigned To</label><select class="fs" name="assignee_name">
+      <option value="">— Select —</option>
+      ${DB.Members.map(m=>`<option value="${m.full_name}" ${item.assignee_name===m.full_name?'selected':''}>${m.full_name}</option>`).join('')}
+    </select></div>
+    <div class="fg"><label class="fl">Due Date</label><input class="fi" type="date" name="due_date" value="${item.due_date||''}"/></div>
+    <input type="hidden" name="meeting_id" value="${item.meeting_id||''}"/>
+    <input type="hidden" name="pushed" value="false"/>`,
+
   Member_Goals: (item={}) => `
     <div class="fg"><label class="fl">Member *</label><select class="fs" name="member_name">
       <option value="">— Select —</option>
@@ -2424,7 +2457,8 @@ async function saveDrawer() {
   form.querySelectorAll('[name]').forEach(el => { data[el.name] = el.value; });
 
   // After save: auto-sync iCal feed if it was just created/edited
-  const wasIcal = drawerEntity === 'iCal_Feeds';
+  const wasIcal      = drawerEntity === 'iCal_Feeds';
+  const meetingIdRef = drawerEntity === 'Meeting_Actions' ? drawerItem?._meetingId : null;
 
   // Validation
   const required = {
@@ -2433,6 +2467,7 @@ async function saveDrawer() {
     Missions:['member_name','title','mission_date'],
     Events:['title','date'], Departments:['name','slug'], Members:['full_name'],
     Member_Goals:['member_name','goal_type'], iCal_Feeds:['name','url'],
+    Meeting_Actions:['title'],
   };
   for (const field of (required[drawerEntity]||[])) {
     if (!data[field]?.trim()) { toast(`${field.replace(/_/g,' ')} is required`, 'error'); return; }
@@ -2443,7 +2478,7 @@ async function saveDrawer() {
 
   try {
     let saved;
-    if (drawerItem) {
+    if (drawerItem?.id) {
       await dbUpdate(drawerEntity, drawerItem.id, data);
       toast('Updated ✓', 'success');
       saved = drawerItem;
@@ -2455,6 +2490,8 @@ async function saveDrawer() {
     renderView(currentView);
     // Auto-sync new iCal feed
     if (wasIcal && saved?.id && saved?.url) syncICalFeed(saved.id);
+    // Re-show meeting detail after adding an action item
+    if (meetingIdRef) setTimeout(() => showMeeting(meetingIdRef), 50);
   } catch(e) {
     toast('Error: ' + e.message, 'error');
   } finally {
@@ -2545,14 +2582,14 @@ function toggleSidebar() {
     sb.classList.toggle('open');
   } else {
     sb.classList.toggle('collapsed');
-    // Flip collapse icon
     const icon = document.getElementById('collapse-icon');
+    const isCollapsed = sb.classList.contains('collapsed');
     if (icon) {
-      const isCollapsed = sb.classList.contains('collapsed');
       icon.innerHTML = isCollapsed
         ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg>'
         : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>';
     }
+    localStorage.setItem('ais_sidebar_collapsed', isCollapsed ? '1' : '0');
   }
 }
 
