@@ -766,10 +766,7 @@ tbody tr:hover{background:rgba(255,255,255,.03)}
           <span class="sb-badge" id="badge-tasks" style="display:none;margin-left:4px">0</span>
         </div>
         <div class="stab" id="stab-media-cal" onclick="setPlannerTab('media-cal',this)">
-          <svg viewBox="0 0 24 24"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>Media Calendar
-        </div>
-        <div class="stab" id="stab-events-pl" onclick="setPlannerTab('events',this)">
-          <svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>Events
+          <svg viewBox="0 0 24 24"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>Media
         </div>
       </div>
 
@@ -868,21 +865,25 @@ tbody tr:hover{background:rgba(255,255,255,.03)}
         <div id="tasks-list"></div>
       </div>
 
-      <!-- Media Calendar tab -->
+      <!-- Media tab (Shoots + Content Pool) -->
       <div class="stab-content" id="sc-media-cal">
         <div class="fb">
-          <button class="btn btn-primary btn-sm" onclick="openAdd('Shoots')">+ Schedule Shoot</button>
+          <button class="chip on" data-pt="shoots" onclick="setPoolTab('shoots',this)">🎬 Shoots</button>
+          <button class="chip" data-pt="pool" onclick="setPoolTab('pool',this)">📦 Content Pool</button>
+          <button class="btn btn-primary btn-sm" onclick="openPoolAdd()">+ Add</button>
         </div>
-        <div id="media-cal-grid"></div>
-      </div>
-
-      <!-- Events tab (moved from Marketing) -->
-      <div class="stab-content" id="sc-events">
-        <div class="fb">
-          <select class="fsel" onchange="filterEvents()" id="ev-campus"><option value="">All Campuses</option><option>MTT</option><option>TK</option><option>CA</option><option>TAK</option><option>SR</option></select>
-          <button class="btn btn-primary btn-sm" onclick="openAdd('Events')">+ Event</button>
+        <div id="media-shoots-wrap">
+          <div id="shoots-list"></div>
         </div>
-        <div class="tw"><table><thead><tr><th>Title</th><th>Date</th><th>Time</th><th>Campus</th><th>Status</th><th></th></tr></thead><tbody id="ev-body"></tbody></table></div>
+        <div id="media-pool-wrap" style="display:none">
+          <div class="fb" style="margin-top:0">
+            <button class="chip on" data-pw="all" onclick="setPoolFilter('all',this)">All</button>
+            <button class="chip" data-pw="raw" onclick="setPoolFilter('raw',this)">Raw</button>
+            <button class="chip" data-pw="editing" onclick="setPoolFilter('editing',this)">Editing</button>
+            <button class="chip" data-pw="ready" onclick="setPoolFilter('ready',this)">Ready</button>
+          </div>
+          <div class="pool-grid" id="pool-grid"></div>
+        </div>
       </div>
     </div>
 
@@ -891,9 +892,6 @@ tbody tr:hover{background:rgba(255,255,255,.03)}
       <div class="section-tabs">
         <div class="stab active" id="stab-campaigns" onclick="setMktTab('campaigns',this)">
           <svg viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>Campaigns
-        </div>
-        <div class="stab" id="stab-media" onclick="setMktTab('media',this)">
-          <svg viewBox="0 0 24 24"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>Media
         </div>
         <div class="stab" id="stab-social" onclick="setMktTab('social',this)">
           <svg viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>Social
@@ -915,29 +913,6 @@ tbody tr:hover{background:rgba(255,255,255,.03)}
         </div>
         <div style="font-size:11px;color:var(--ct);margin-bottom:12px" id="camps-sub"></div>
         <div class="camp-grid" id="camps-list"></div>
-      </div>
-
-      <!-- Media / Content Pool -->
-      <div class="stab-content" id="sm-media">
-        <div class="fb">
-          <button class="chip on" data-pt="shoots" onclick="setPoolTab('shoots',this)">🎬 Shoots</button>
-          <button class="chip" data-pt="pool" onclick="setPoolTab('pool',this)">📦 Content Pool</button>
-          <button class="btn btn-primary btn-sm" onclick="openPoolAdd()">+ Add</button>
-        </div>
-        <!-- Shoots list -->
-        <div id="media-shoots-wrap">
-          <div id="shoots-list"></div>
-        </div>
-        <!-- Content Pool grid -->
-        <div id="media-pool-wrap" style="display:none">
-          <div class="fb" style="margin-top:0">
-            <button class="chip on" data-pw="all" onclick="setPoolFilter('all',this)">All</button>
-            <button class="chip" data-pw="raw" onclick="setPoolFilter('raw',this)">Raw</button>
-            <button class="chip" data-pw="editing" onclick="setPoolFilter('editing',this)">Editing</button>
-            <button class="chip" data-pw="ready" onclick="setPoolFilter('ready',this)">Ready</button>
-          </div>
-          <div class="pool-grid" id="pool-grid"></div>
-        </div>
       </div>
 
       <!-- Social -->
