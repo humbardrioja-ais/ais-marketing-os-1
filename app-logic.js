@@ -40,6 +40,8 @@ let calDate          = new Date();
 let calFilters       = { leave: true, mission: true, dayoff: true };
 let taskFilterStatus = 'all';
 let taskFilterDept   = '';
+let taskViewMode     = 'team';
+let groupByMode      = 'status';
 let campaignFilter   = 'all';
 let peopleFilter     = 'all';
 let mediaPoolTab     = 'shoots';
@@ -338,16 +340,8 @@ function setPF(filter, el) {
 
 function setDashView(view, el) {
   currentDashView = view;
-  document.getElementById('vteam').className = view === 'team'
-    ? 'btn btn-sm btn-primary'
-    : 'btn btn-sm';
-  document.getElementById('vmy').className = view === 'my'
-    ? 'btn btn-sm btn-primary'
-    : 'btn btn-sm';
-  document.getElementById('vteam').style.background = view === 'team' ? '' : 'transparent';
-  document.getElementById('vmy').style.background   = view === 'my'   ? '' : 'transparent';
-  document.getElementById('vteam').style.color = view === 'team' ? '' : 'var(--cs)';
-  document.getElementById('vmy').style.color   = view === 'my'   ? '' : 'var(--cs)';
+  document.querySelectorAll('#vteam,#vmy').forEach(b => b.classList.remove('tgl-active'));
+  el.classList.add('tgl-active');
   renderDashboard();
 }
 
@@ -379,6 +373,43 @@ function filterPeople()     { renderPeople(); }
 function filterSocial()     { renderSocial(); }
 function filterEnrollment() { renderEnrollment(); }
 function filterEvents()     { renderEvents(); }
+
+function navToTasks() {
+  nav('planner');
+  setTimeout(() => setPlannerTab('tasks', document.getElementById('stab-tasks')), 50);
+}
+
+function setTaskView(view, el) {
+  taskViewMode = view;
+  document.querySelectorAll('#tv-mine,#tv-team').forEach(b => b.classList.remove('tgl-active'));
+  el.classList.add('tgl-active');
+  renderTasks();
+}
+
+function setGroupBy(gb, el) {
+  groupByMode = gb;
+  document.querySelectorAll('[data-gb]').forEach(b => b.classList.remove('on'));
+  el.classList.add('on');
+  renderTasks();
+}
+
+async function quickAddTask(event) {
+  if (event.key !== 'Enter') return;
+  const input    = document.getElementById('quick-task-input');
+  const title    = (input?.value || '').trim();
+  if (!title) return;
+  const assignee = document.getElementById('quick-assignee')?.value || '';
+  const due      = document.getElementById('quick-due')?.value || '';
+  const dept     = document.getElementById('task-dept')?.value || '';
+  await dbAppend('Tasks', { title, assignee_name: assignee, due_date: due, department: dept, status: 'todo', priority: 'medium' });
+  if (input) input.value = '';
+  toast('Task added ✓', 'success');
+}
+
+function setCurrentUser(name) {
+  localStorage.setItem('ais_current_user', name);
+  if (name) toast(`Logged in as ${name}`, 'success');
+}
 
 // ─── UTILS ────────────────────────────────────────────────────────────────────
 function pill(status) {
@@ -459,24 +490,26 @@ function emptyState(msg) {
 
 // ─── DASHBOARD ────────────────────────────────────────────────────────────────
 function renderDashboard() {
-  // KPIs
-  const activeTasks     = DB.Tasks.filter(t => t.status !== 'done' && t.status !== 'blocked').length;
-  const doneTasks       = DB.Tasks.filter(t => t.status === 'done').length;
-  const activeCampaigns = DB.Campaigns.filter(c => c.status === 'active').length;
-  const upcomingEvents  = DB.Events.filter(e => { const d = daysUntil(e.date); return d !== null && d >= 0 && d <= 14; }).length;
-  const overdueTasks    = DB.Tasks.filter(t => t.status !== 'done' && isOverdue(t.due_date)).length;
-  const totalTasks      = DB.Tasks.length;
-  const pct             = totalTasks ? Math.round((doneTasks / totalTasks) * 100) : 0;
-  const onLeaveToday    = DB.Leave_Requests.filter(r => { const td = new Date().toISOString().slice(0,10); return r.start_date<=td && r.end_date>=td; }).length;
+  const today         = new Date().toISOString().slice(0,10);
+  const activeTasks   = DB.Tasks.filter(t => t.status !== 'done' && t.status !== 'blocked').length;
+  const doneTasks     = DB.Tasks.filter(t => t.status === 'done').length;
+  const overdueTasks  = DB.Tasks.filter(t => t.status !== 'done' && isOverdue(t.due_date)).length;
+  const totalTasks    = DB.Tasks.length;
+  const pct           = totalTasks ? Math.round((doneTasks / totalTasks) * 100) : 0;
+  const onLeaveToday  = DB.Leave_Requests.filter(r => r.start_date <= today && r.end_date >= today).length;
+  const onMissionToday= DB.Missions.filter(r => r.mission_date === today).length;
+  const onDayOffToday = DB.Comp_Days.filter(r => r.comp_date === today).length;
+  const outTotal      = onLeaveToday + onMissionToday + onDayOffToday;
 
+  // ── KPI grid ──
   const kpiEl = document.getElementById('dash-kpis');
   if (kpiEl) kpiEl.innerHTML = [
     { icon:'📋', label:'Open Tasks',       val:activeTasks,       sub: overdueTasks ? `⚠️ ${overdueTasks} overdue` : `${pct}% complete`,   color:'#3B82F6' },
-    { icon:'🚀', label:'Active Campaigns', val:activeCampaigns,   sub:`of ${DB.Campaigns.length} total`,                                    color:'#A855F7' },
-    { icon:'🌿', label:'On Leave Today',   val:onLeaveToday,      sub:`of ${DB.Members.length} team members`,                              color:'#22C55E' },
-    { icon:'📅', label:'Upcoming Events',  val:upcomingEvents,    sub:'next 14 days',                                                       color:'#F59E0B' },
-    { icon:'🎬', label:'Scheduled Shoots', val:DB.Shoots.filter(s=>s.status==='scheduled').length, sub:'upcoming',                          color:'#EC4899' },
-    { icon:'💬', label:'Meetings Logged',  val:DB.Meetings.length,sub:`${DB.Meeting_Actions.filter(a=>!a.pushed||a.pushed==='false').length} actions pending`, color:'#64748B' },
+    { icon:'🚀', label:'Active Campaigns', val:DB.Campaigns.filter(c=>c.status==='active').length, sub:`of ${DB.Campaigns.length} total`, color:'#A855F7' },
+    { icon:'👥', label:'Out Today',        val:outTotal,          sub:`of ${DB.Members.length} team members`,                              color:'#22C55E' },
+    { icon:'📅', label:'Upcoming Events',  val:DB.Events.filter(e=>{ const d=daysUntil(e.date); return d!==null&&d>=0&&d<=14; }).length, sub:'next 14 days', color:'#F59E0B' },
+    { icon:'🎬', label:'Scheduled Shoots', val:DB.Shoots.filter(s=>s.status==='scheduled').length, sub:'upcoming',                        color:'#EC4899' },
+    { icon:'💬', label:'Pending Actions',  val:DB.Meeting_Actions.filter(a=>!a.pushed||a.pushed==='false').length, sub:'from meetings',    color:'#64748B' },
   ].map(k => `
     <div class="kpi" style="border-top:3px solid ${k.color}">
       <div class="kpi-icon">${k.icon}</div>
@@ -485,31 +518,60 @@ function renderDashboard() {
       <div class="kpi-sub">${k.sub}</div>
     </div>`).join('');
 
-  // Open tasks
-  const priorityOrder = { critical:0, high:1, medium:2, low:3 };
-  const tasks = DB.Tasks
-    .filter(t => t.status !== 'done')
-    .sort((a,b) => (priorityOrder[a.priority]||2)-(priorityOrder[b.priority]||2) || (a.due_date||'9').localeCompare(b.due_date||'9'))
-    .slice(0, 6);
+  // ── Out Today ──
+  const outWrap  = document.getElementById('dash-out-wrap');
+  const outList  = document.getElementById('dash-out-list');
+  const outBadge = document.getElementById('dash-out-badge');
+  if (outWrap && outList) {
+    const outPeople = [
+      ...DB.Leave_Requests.filter(r => r.start_date <= today && r.end_date >= today)
+        .map(r => ({ name: r.member_name, type: '🌿 Leave', reason: r.leave_type })),
+      ...DB.Missions.filter(r => r.mission_date === today)
+        .map(r => ({ name: r.member_name, type: '⚡ Mission', reason: r.title })),
+      ...DB.Comp_Days.filter(r => r.comp_date === today)
+        .map(r => ({ name: r.member_name, type: '🌙 Day Off', reason: '' })),
+    ];
+    if (outPeople.length) {
+      outWrap.style.display = '';
+      if (outBadge) outBadge.textContent = outPeople.length;
+      outList.innerHTML = outPeople.map(p => `
+        <div class="att-row">
+          ${av(p.name)}
+          <div style="flex:1;min-width:0">
+            <div style="font-size:13px;font-weight:600">${esc(p.name)}</div>
+            <div style="font-size:11px;color:var(--ct)">${p.type}${p.reason ? ' · ' + esc(p.reason) : ''}</div>
+          </div>
+        </div>`).join('');
+    } else {
+      outWrap.style.display = 'none';
+    }
+  }
 
-  const dashTasks = document.getElementById('dash-tasks');
-  if (dashTasks) dashTasks.innerHTML = tasks.length
-    ? tasks.map(t => {
-        const sub = DB.Subtasks.filter(s => s.task_id === t.id);
-        const done = sub.filter(s => s.done === 'true' || s.done === true).length;
-        return `
-          <div class="task-row" onclick="nav('planner')">
-            <div class="tcheck ${t.status==='done'?'done':''}"></div>
-            <div class="tdept" style="background:${deptColor(t.department)}"></div>
-            <div class="ttitle ${t.status==='done'?'done':''}" style="flex:1">${truncate(t.title,44)}</div>
-            <div class="tmeta">
-              ${sub.length ? `<span class="tsub-badge">${done}/${sub.length}</span>` : ''}
-              ${t.due_date ? `<span class="tdue ${isOverdue(t.due_date)?'over':''}">${fmtDate(t.due_date)}</span>` : ''}
-              ${pill(t.priority)}
-            </div>
-          </div>`;
-      }).join('')
-    : '<div style="color:var(--ct);font-size:13px;padding:24px 0;text-align:center">🎉 All tasks complete!</div>';
+  // ── Needs Attention ──
+  const attEl    = document.getElementById('dash-attention');
+  const attnTitle = document.getElementById('dash-attn-title');
+  if (attEl) {
+    const overdue  = DB.Tasks.filter(t => t.status !== 'done' && isOverdue(t.due_date));
+    const dueToday = DB.Tasks.filter(t => t.status !== 'done' && !isOverdue(t.due_date) && daysUntil(t.due_date) === 0);
+    const dueWeek  = DB.Tasks.filter(t => t.status !== 'done' && daysUntil(t.due_date) > 0 && daysUntil(t.due_date) <= 7);
+    if (attnTitle) attnTitle.textContent = `Needs Attention (${overdue.length + dueToday.length})`;
+    const items = [
+      ...overdue.map(t  => ({ t, tagLabel:'Overdue',   tagClass:'tag-overdue' })),
+      ...dueToday.map(t => ({ t, tagLabel:'Due Today',  tagClass:'tag-today'   })),
+      ...dueWeek.slice(0,3).map(t => ({ t, tagLabel:'This Week', tagClass:'tag-week' })),
+    ].slice(0, 8);
+    attEl.innerHTML = items.length
+      ? items.map(({ t, tagLabel, tagClass }) => `
+        <div class="att-row" onclick="navToTasks()" style="cursor:pointer">
+          <span class="att-tag ${tagClass}">${tagLabel}</span>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(t.title)}</div>
+            <div style="font-size:11px;color:var(--ct)">${esc(t.assignee_name||'Unassigned')} · ${deptName(t.department)}</div>
+          </div>
+          ${t.due_date ? `<span style="font-size:11px;color:var(--ct);flex-shrink:0">${fmtDate(t.due_date)}</span>` : ''}
+        </div>`).join('')
+      : '<div style="padding:20px;text-align:center;color:var(--ct);font-size:13px">🎉 No overdue or urgent tasks</div>';
+  }
 
   // Upcoming events
   const events = DB.Events.filter(e => daysUntil(e.date) >= 0)
@@ -696,12 +758,22 @@ function renderTasks() {
   if (deptSel && DB.Departments.length) {
     deptSel.innerHTML = '<option value="">All Departments</option>' +
       DB.Departments.map(d => `<option value="${d.slug}" ${taskFilterDept===d.slug?'selected':''}>${d.name}</option>`).join('');
+    deptSel.onchange = () => { taskFilterDept = deptSel.value; renderTasks(); };
   }
 
-  const search = (document.getElementById('task-search')?.value || '').toLowerCase();
-  const tasks  = DB.Tasks.filter(t => {
+  // Quick-add assignee dropdown
+  const qaSel = document.getElementById('quick-assignee');
+  if (qaSel && DB.Members.length && qaSel.options.length <= 1) {
+    qaSel.innerHTML = '<option value="">Assign…</option>' +
+      DB.Members.map(m => `<option value="${esc(m.full_name)}">${esc(m.full_name)}</option>`).join('');
+  }
+
+  const search   = (document.getElementById('task-search')?.value || '').toLowerCase();
+  const currentUser = localStorage.getItem('ais_current_user') || '';
+  let tasks = DB.Tasks.filter(t => {
     if (taskFilterStatus !== 'all' && t.status !== taskFilterStatus) return false;
     if (taskFilterDept   && t.department !== taskFilterDept)          return false;
+    if (taskViewMode === 'mine' && currentUser && t.assignee_name !== currentUser) return false;
     if (search && !t.title.toLowerCase().includes(search) && !(t.assignee_name||'').toLowerCase().includes(search)) return false;
     return true;
   });
@@ -723,19 +795,44 @@ function renderTasks() {
     return;
   }
 
-  const order  = ['todo','in_progress','in_review','blocked','done'];
-  const labels = { todo:'To Do', in_progress:'In Progress', in_review:'In Review', blocked:'Blocked', done:'Done' };
-  const groups = {};
-  order.forEach(s => { groups[s] = []; });
-  tasks.forEach(t => { const s = t.status||'todo'; (groups[s] = groups[s]||[]).push(t); });
-
-  listEl.innerHTML = order.map(s => {
-    if (!groups[s].length) return '';
-    return `<div class="task-section-hd">
-      <span style="color:${statusColor(s)}">${labels[s]}</span>
-      <span class="tcount">${groups[s].length}</span>
-    </div>` + groups[s].map(taskRowHTML).join('');
-  }).join('') || emptyState('No tasks found');
+  if (groupByMode === 'assignee') {
+    const names = [...new Set(tasks.map(t => t.assignee_name || 'Unassigned'))].sort();
+    listEl.innerHTML = names.map(name => {
+      const mt = tasks.filter(t => (t.assignee_name || 'Unassigned') === name);
+      return `<div class="gh">${av(name,'sm')}<span>${name}</span><span class="gc">${mt.length}</span></div>` + mt.map(taskRowHTML).join('');
+    }).join('') || emptyState('No tasks found');
+  } else if (groupByMode === 'due') {
+    const buckets = [
+      { label:'Overdue',   fn: t => t.due_date && daysUntil(t.due_date) < 0 },
+      { label:'Due Today', fn: t => t.due_date && daysUntil(t.due_date) === 0 },
+      { label:'This Week', fn: t => t.due_date && daysUntil(t.due_date) > 0 && daysUntil(t.due_date) <= 7 },
+      { label:'Later / No Date', fn: t => !t.due_date || daysUntil(t.due_date) > 7 },
+    ];
+    listEl.innerHTML = buckets.map(b => {
+      const bt = tasks.filter(b.fn);
+      if (!bt.length) return '';
+      return `<div class="gh"><span>${b.label}</span><span class="gc">${bt.length}</span></div>` + bt.map(taskRowHTML).join('');
+    }).join('') || emptyState('No tasks found');
+  } else if (groupByMode === 'dept') {
+    const depts = [...new Set(tasks.map(t => t.department || ''))];
+    listEl.innerHTML = depts.map(dept => {
+      const dt = tasks.filter(t => (t.department || '') === dept);
+      return `<div class="gh"><span style="color:${deptColor(dept)}">${deptName(dept)}</span><span class="gc">${dt.length}</span></div>` + dt.map(taskRowHTML).join('');
+    }).join('') || emptyState('No tasks found');
+  } else {
+    const order  = ['todo','in_progress','in_review','blocked','done'];
+    const labels = { todo:'To Do', in_progress:'In Progress', in_review:'In Review', blocked:'Blocked', done:'Done' };
+    const groups = {};
+    order.forEach(s => { groups[s] = []; });
+    tasks.forEach(t => { const s = t.status||'todo'; (groups[s] = groups[s]||[]).push(t); });
+    listEl.innerHTML = order.map(s => {
+      if (!groups[s].length) return '';
+      return `<div class="task-section-hd">
+        <span style="color:${statusColor(s)}">${labels[s]}</span>
+        <span class="tcount">${groups[s].length}</span>
+      </div>` + groups[s].map(taskRowHTML).join('');
+    }).join('') || emptyState('No tasks found');
+  }
 }
 
 function taskRowHTML(t) {
@@ -1116,6 +1213,36 @@ function renderEvents() {
 
 // ─── PEOPLE ───────────────────────────────────────────────────────────────────
 function renderPeople() {
+  // Attendance strip
+  const today      = new Date().toISOString().slice(0,10);
+  const onLeave    = DB.Leave_Requests.filter(r => r.start_date <= today && r.end_date >= today);
+  const onMission  = DB.Missions.filter(r => r.mission_date === today);
+  const onDayOff   = DB.Comp_Days.filter(r => r.comp_date === today);
+  const out        = onLeave.length + onMission.length + onDayOff.length;
+  const present    = Math.max(0, DB.Members.length - out);
+  const dateEl     = document.getElementById('att-date-lbl');
+  if (dateEl) dateEl.textContent = new Date().toLocaleDateString('en', { weekday:'long', month:'long', day:'numeric' });
+  const nPresent = document.getElementById('att-n-present');
+  if (nPresent) nPresent.textContent = present;
+  const nLeave = document.getElementById('att-n-leave');
+  if (nLeave) nLeave.textContent = onLeave.length;
+  const nMission = document.getElementById('att-n-mission');
+  if (nMission) nMission.textContent = onMission.length;
+  const nDayOff = document.getElementById('att-n-dayoff');
+  if (nDayOff) nDayOff.textContent = onDayOff.length;
+  const pendingCount = DB.Leave_Requests.filter(r => r.status === 'pending').length;
+  const pendingEl = document.getElementById('att-pending-lbl');
+  if (pendingEl) {
+    pendingEl.style.display = pendingCount ? '' : 'none';
+    pendingEl.textContent   = pendingCount ? `⚠️ ${pendingCount} pending approval` : '';
+    pendingEl.style.color   = 'var(--amber)';
+    pendingEl.style.fontWeight = '600';
+    pendingEl.style.fontSize   = '11px';
+  }
+
+  // Week calendar
+  renderPeopleWeekCal();
+
   const search = (document.getElementById('ppl-search')?.value || '').toLowerCase();
   const leave   = DB.Leave_Requests.map(d => ({ kind:'leave',   data:d }));
   const mission = DB.Missions.map(d => {
@@ -1164,6 +1291,51 @@ function renderPeople() {
         </tr>`;
       }).join('')
     : '<tr><td colspan="7" class="t-empty">No records found</td></tr>';
+}
+
+function renderPeopleWeekCal() {
+  const el = document.getElementById('ppl-week-cal');
+  if (!el) return;
+  const today      = new Date();
+  const todayStr   = today.toISOString().slice(0,10);
+  const dayOfWeek  = today.getDay();
+  const monday     = new Date(today);
+  monday.setDate(today.getDate() - ((dayOfWeek + 6) % 7));
+
+  const days = [];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(monday);
+    d.setDate(monday.getDate() + i);
+    days.push({ str: d.toISOString().slice(0,10), date: d });
+  }
+
+  const members = DB.Members.slice(0, 10);
+  if (!members.length) { el.innerHTML = ''; return; }
+
+  let html = '<table class="wc-table"><thead><tr><th class="wc-th">Member</th>';
+  days.forEach(({ str, date }) => {
+    const isToday = str === todayStr;
+    html += `<th class="wc-th${isToday?' wc-today-col':''}">${date.toLocaleDateString('en',{weekday:'short'})}<br><span style="font-weight:400">${date.getDate()}</span></th>`;
+  });
+  html += '</tr></thead><tbody>';
+
+  members.forEach(m => {
+    html += `<tr class="wc-tr"><td class="wc-td" style="font-size:12px;font-weight:600;white-space:nowrap">${esc(m.full_name.split(' ')[0])}</td>`;
+    days.forEach(({ str }) => {
+      const isToday   = str === todayStr;
+      const onLeave   = DB.Leave_Requests.some(r => r.member_name === m.full_name && r.start_date <= str && r.end_date >= str);
+      const onMission = DB.Missions.some(r => r.member_name === m.full_name && r.mission_date === str);
+      const onDayOff  = DB.Comp_Days.some(r => r.member_name === m.full_name && r.comp_date === str);
+      let badge = '';
+      if (onLeave)   badge = '<span class="wc-badge wc-l">L</span>';
+      else if (onMission) badge = '<span class="wc-badge wc-m">M</span>';
+      else if (onDayOff)  badge = '<span class="wc-badge wc-d">D</span>';
+      html += `<td class="wc-td${isToday?' wc-today-col':''}" style="text-align:center">${badge}</td>`;
+    });
+    html += '</tr>';
+  });
+  html += '</tbody></table>';
+  el.innerHTML = html;
 }
 
 function compExpiryHTML(comp) {
@@ -1418,9 +1590,10 @@ async function addTaskComment(taskId) {
   const input = document.getElementById('new-comment-input');
   const body  = input?.value?.trim();
   if (!body) return;
+  const author = localStorage.getItem('ais_current_user') || DB.Members[0]?.full_name || 'Me';
   await dbAppend('Task_Comments', {
     task_id:     taskId,
-    author_name: DB.Members[0]?.full_name || 'Me',
+    author_name: author,
     body,
     created_at:  new Date().toISOString(),
   });
@@ -1750,6 +1923,14 @@ function renderAdmin() {
   // Settings URL
   const urlEl = document.getElementById('settings-url');
   if (urlEl && CONFIG.SCRIPT_URL) urlEl.value = CONFIG.SCRIPT_URL;
+
+  // Current user dropdown
+  const userSel = document.getElementById('current-user-sel');
+  if (userSel) {
+    const currentUser = localStorage.getItem('ais_current_user') || '';
+    userSel.innerHTML = '<option value="">— Select your name —</option>' +
+      DB.Members.map(m => `<option value="${esc(m.full_name)}" ${currentUser === m.full_name ? 'selected' : ''}>${esc(m.full_name)}</option>`).join('');
+  }
 
   // Goals
   renderGoals();
